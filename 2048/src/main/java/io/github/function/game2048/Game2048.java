@@ -14,7 +14,7 @@ public class Game2048 extends Game {
   private boolean hasLost = false;
   private boolean isPause = false;
   private int score = 0;
-  private int maxTile = 0;
+  private int globalMaxTile = 0;
   private int[][] previousGameField = new int[SIDE][SIDE];
   private int previousScore = 0;
 
@@ -41,23 +41,18 @@ public class Game2048 extends Game {
         drawScene();
         hasWon = false;
         hasLost = false;
+        isPause = false;
       } else {
-        if (hasWon) {
-          showMessageDialog(Color.BLUEVIOLET, "Конец игры!\nПробел: Новая игра \nРекорд: " + maxTile
-              + ", Рекорд за игру: " + getMaxTileValue() + "; Очки: " + score, Color.GOLD, 20);
-        } else {
-          showMessageDialog(Color.BLACK, "Конец игры!\nПробел: Новая игра \nРекорд: " + maxTile
-              + ", Рекорд за игру: " + getMaxTileValue() + "; Очки: " + score, Color.RED, 20);
-        }
+        showEndGameDialog();
         return;
       }
     }
     if (isWinPending) {
       if (key == Key.ESCAPE) {
         isWinPending = false;
+        hasWon = true;
         isGameStopped = true;
-        showMessageDialog(Color.BLUEVIOLET, "Конец игры!\nПробел: Новая игра \nРекорд: " + maxTile
-            + "; Рекорд за игру: " + getMaxTileValue() + "; Очки: " + score, Color.GOLD, 20);
+        showEndGameDialog();
       } else if (key == Key.UNKNOWN || key == Key.ENTER || key == Key.SPACE) {
         showMessageDialog(Color.BLUEVIOLET, "Вы победили! Продолжить играть?\nЛюбой ход: ДА, Esc: НЕТ", Color.GOLD, 30);
         return;
@@ -70,13 +65,7 @@ public class Game2048 extends Game {
     if (hasLost) {
       if (key == Key.ESCAPE) {
         isGameStopped = true;
-        if (hasWon) {
-          showMessageDialog(Color.BLUEVIOLET, "Конец игры!\nПробел: Новая игра \nРекорд: " + maxTile
-              + ", Рекорд за игру: " + getMaxTileValue() + "; Очки: " + score, Color.GOLD, 20);
-        } else {
-          showMessageDialog(Color.BLACK, "Конец игры!\nПробел: Новая игра \nРекорд: " + maxTile
-              + ", Рекорд за игру: " + getMaxTileValue() + "; Очки: " + score, Color.RED, 20);
-        }
+        showEndGameDialog();
         return;
       } else if (key == Key.ENTER) {
         for (int y = 0; y < gameField.length; y++) {
@@ -96,14 +85,13 @@ public class Game2048 extends Game {
 
     if (isPause) {
       if (key == Key.SPACE) {
-        createGame();
-        drawScene();
-        isPause = false;
+        isGameStopped = true;
+        showEndGameDialog();
       } else if (key == Key.ESCAPE) {
         isPause = false;
         return;
       } else {
-        showMessageDialog(Color.WHITE, "Меню\nПробел: Новая игра, Esc: Продолжить\nРекорд: " + maxTile
+        showMessageDialog(Color.WHITE, "Меню\nПробел: Новая игра, Esc: Продолжить\nРекорд: " + globalMaxTile
             + ", Рекорд за игру: " + getMaxTileValue() + ", Очки: " + score, Color.BLACK, 20);
         return;
       }
@@ -118,7 +106,7 @@ public class Game2048 extends Game {
     } else if (key == Key.LEFT) {
       moveLeft();
     } else if (key == Key.ESCAPE && !isGameStopped) {
-      showMessageDialog(Color.WHITE, "Меню\nПробел: Новая игра; Esc: Продолжить\nРекорд: " + maxTile
+      showMessageDialog(Color.WHITE, "Меню\nПробел: Новая игра; Esc: Продолжить\nРекорд: " + globalMaxTile
           + ", Рекорд за игру: " + getMaxTileValue() + ", Очки: " + score, Color.BLACK, 20);
       isPause = true;
     } else {
@@ -141,6 +129,91 @@ public class Game2048 extends Game {
     }
   }
 
+  @Override
+  public void onMouseLeftClick(int x, int y) {
+    if (isGameStopped) {
+      showEndGameDialog();
+      return;
+    }
+    if (isWinPending) {
+      showMessageDialog(Color.BLUEVIOLET, "Вы победили! Продолжить играть?\nЛюбой ход: ДА, Esc: НЕТ", Color.GOLD, 30);
+      return;
+    }
+    if (hasLost) {
+      showMessageDialog(Color.BLACK, "Вы проиграли\nEsc: Конец игры, Enter: Вернуть ход", Color.RED, 30);
+      return;
+    }
+    if (isPause) {
+      showMessageDialog(Color.WHITE, "Меню\nПробел: Новая игра, Esc: Продолжить\nРекорд: " + globalMaxTile
+          + ", Рекорд за игру: " + getMaxTileValue() + ", Очки: " + score, Color.BLACK, 20);
+      return;
+    }
+    int base, index;
+    switch (gameField[y][x]) {
+      case 1: {
+        base = 2;
+        break;
+      }
+      case 3: {
+        base = 5;
+        break;
+      }
+      case 5: {
+        base = 8;
+        break;
+      }
+      case 7: {
+        base = 11;
+        break;
+      }
+      default: {
+        return;
+      }
+    }
+    int random = getRandomNumber(100);
+    if (random < 50) {
+      index = 0;
+    } else if (random >= 50 && random < 75) {
+      index = 1;
+    } else if (random >= 75 && random < 90) {
+      index = 2;
+    } else if (random >= 90 && random < 99) {
+      index = 3;
+    } else if (random == 99) {
+      index = 4;
+    } else {
+      return;
+    }
+    gameField[y][x] = 1 << (base + index);
+    drawScene();
+
+    score += gameField[y][x];
+    setScore(score);
+
+    if (!hasWon) {
+      if (getMaxTileValue() >= 2048) {
+        showMessageDialog(Color.BLUEVIOLET, "Вы победили! Продолжить играть?\nЛюбой ход: ДА; Esc: НЕТ", Color.GOLD, 30);
+        isWinPending = true;
+        return;
+      }
+    }
+
+
+    if (!canUserMove()) {
+      showMessageDialog(Color.BLACK, "Вы проиграли\nEsc: Конец игры, Enter: Вернуть ход", Color.RED, 30);
+      hasLost = true;
+      return;
+    }
+    if (!hasLost && !Arrays.deepEquals(previousGameField, gameField)) {
+      for (int y1 = 0; y1 < gameField.length; y1++) {
+        for (int x1 = 0; x1 < gameField.length; x1++) {
+          previousGameField[y1][x1] = gameField[y1][x1];
+        }
+      }
+      previousScore = score;
+    }
+  }
+
   private void createGame() {
     for (int x = 0; x < SIDE; x++) {
       for (int y = 0; y < SIDE; y++) {
@@ -148,7 +221,7 @@ public class Game2048 extends Game {
         previousGameField[y][x] = 0;
       }
     }
-    
+
     createNewNumber();
     createNewNumber();
   }
@@ -158,13 +231,12 @@ public class Game2048 extends Game {
       for (int x = 0; x < SIDE; x++) {
         if (gameField[y][x] == 0) {
           return true;
+        } else if (gameField[y][x] % 2 != 0) {
+          return true;
         } else if (y < SIDE - 1 && gameField[y][x] == gameField[y + 1][x]) {
           return true;
         } else if ((x < SIDE - 1) && gameField[y][x] == gameField[y][x + 1]) {
           return true;
-          // } else if (gameField[y][x] == 1 || gameField[y][x] == 3 || gameField[y][x] ==
-          // 5 || gameField[y][x] == 7) {
-          // return true;
         }
       }
     }
@@ -187,7 +259,7 @@ public class Game2048 extends Game {
       int random = getRandomNumber(1066);
       if (gameField[y][x] == 0) {
         if (random < 900) {
-          gameField[y][x] = 1024;
+          gameField[y][x] = 2;
         } else if (random >= 900 && random < 1000) {
           gameField[y][x] = 4;
         } else if (random >= 1000 && random < 1050) {
@@ -215,7 +287,18 @@ public class Game2048 extends Game {
         }
       }
     }
+    if (max > globalMaxTile) {
+      globalMaxTile = max;
+    }
     return max;
+  }
+
+  private void showEndGameDialog() {
+    Color backgroundColor = hasWon ? Color.BLUEVIOLET : Color.BLACK;
+    Color textColor = hasWon ? Color.GOLD : Color.RED;
+    showMessageDialog(backgroundColor, "Конец игры!\nПробел: Новая игра \nРекорд: " + globalMaxTile
+        + ", Рекорд за игру: " + getMaxTileValue() + "; Очки: " + score, textColor, 20);
+
   }
 
   private void setCellColoredNumber(int x, int y, int value) {
@@ -342,7 +425,7 @@ public class Game2048 extends Game {
   private boolean mergeRow(int[] row) {
     boolean result = false;
     for (int i = 0; i < row.length - 1; i++) {
-      if (row[i] != 0 && row[i] == row[i + 1]) {
+      if (row[i] != 0 && row[i] % 2 == 0 && row[i] == row[i + 1]) {
         row[i] += row[i + 1];
         row[i + 1] = 0;
         result = true;
